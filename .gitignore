@@ -36,6 +36,7 @@ firebase-debug.log*
 .env*
 *serviceAccountKey.json
 firebase-service-account.json
+*firebase-adminsdk*.json
 *.db
 *.db*
 *.db-journal

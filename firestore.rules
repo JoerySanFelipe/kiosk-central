@@ -7,12 +7,12 @@ service cloud.firestore {
     // ===============================================================
     //
     // Application: Kiosk Central (Financial Kiosk & Piso WiFi Management)
-    // Primary Architecture: Next.js 16 Server-Side App Router with firebase-admin.
-    // Client-Side Security: Public visitors have NO direct read or write access.
-    // Server-side Route Handlers (/api/*) operate via privileged Firebase Admin SDK.
-    // For direct client connections, access requires verified administrative claims.
+    // Architecture: Pure Static SPA Web Application connecting directly via Client Web SDK.
+    // Client SDK has direct read and write access to application collections with
+    // comprehensive schema validation, resource bounds, and immutable field invariants.
+    // All other collections are denied by default.
     //
-    // Collections:
+    // Collections to Secure:
     //
     // 1. machines
     //    Document ID: Machine ID (e.g. 'm_abc123' or custom string)
@@ -29,23 +29,23 @@ service cloud.firestore {
     //    Document ID: Deterministic unique key (e.g. 'cash_in:2046476261933')
     //    Fields:
     //      - id: string (required, 1..128 chars, immutable)
-    //      - machine_id / machineId: string (required, 1..64 chars)
+    //      - machine_id / machineId: string (optional, 1..64 chars)
     //      - service_type / serviceType: string (required, 'PISO_WIFI'|'CASH_IN'|'E_LOAD'|'BILLS_PAYMENT')
     //      - reference_no / referenceNo: string (optional, 0..100 chars) or null
-    //      - transaction_time / transactionTime: string (required, 1..50 chars)
+    //      - transaction_time / transactionTime: string (optional, 1..50 chars)
     //      - amount: number (required)
-    //      - fee: number (required)
+    //      - fee: number (optional)
     //      - inserted_amount / insertedAmount: number (required)
     //      - wallet_deduction / walletDeduction: number (required)
-    //      - provider_cost / providerCost: number (required)
-    //      - net_profit / netProfit: number (required)
+    //      - provider_cost / providerCost: number (optional)
+    //      - net_profit / netProfit: number (optional)
     //      - old_balance / oldBalance: number (optional) or null
     //      - new_balance / newBalance: number (optional) or null
     //      - status: string (required, 'SUCCEEDED'|'FAILED'|'PENDING')
     //      - notes: string (optional, 0..500 chars) or null
     //      - is_personal_draw / isPersonalDraw: int (0 or 1) or bool (optional)
     //      - import_batch_id / importBatchId: string (optional, 0..128 chars) or null
-    //      - created_at / createdAt: string (required, 1..50 chars, immutable)
+    //      - created_at / createdAt: string (optional, 1..50 chars, immutable)
     //
     // 3. cash_harvests
     //    Document ID: Harvest ID (e.g. 'harvest_1730000000_abc')
@@ -62,6 +62,7 @@ service cloud.firestore {
     //      - total_deducted / totalDeducted: number (optional)
     //      - net_adjustment / netAdjustment: number (optional)
     //      - adjustments_json / adjustmentsJson: string (optional, 0..20000 chars) or null
+    //      - adjustments: list (optional, max 100 items)
     //      - actual_amount / actualAmount: number (required)
     //      - variance: number (required)
     //      - collected_by / collectedBy: string (required, 1..100 chars)
@@ -70,6 +71,7 @@ service cloud.firestore {
     //      - slip_image_url / slipImageUrl: string (optional, 0..2000 chars) or null
     //      - notes: string (optional, 0..1000 chars) or null
     //      - created_at / createdAt: string (required, 1..50 chars, immutable)
+    //      - updated_at / updatedAt: string (optional, 0..50 chars) or null
     //
     // 4. cash_harvest_adjustments
     //    Document ID: Adjustment ID (e.g. 'adj_1730000000_abc')
@@ -78,7 +80,7 @@ service cloud.firestore {
     //      - harvest_id / harvestId: string (required, 1..128 chars, immutable)
     //      - type: string (required, 'ADD'|'DEDUCT')
     //      - target: string (optional, 'EXPECTED'|'PHYSICAL')
-    //      - amount: number (required)
+    //      - amount: number (required, > 0)
     //      - description: string (required, 1..500 chars)
     //      - created_at / createdAt: string (optional, 0..50 chars, immutable)
     //
@@ -86,7 +88,7 @@ service cloud.firestore {
     //    Document ID: Deposit ID (e.g. 'dep_1730000000_abc')
     //    Fields:
     //      - id: string (required, 1..128 chars, immutable)
-    //      - deposit_date / depositDate: string (required, 1..50 chars)
+    //      - deposit_date / depositDate: string (optional, 1..50 chars)
     //      - deposit_type / depositType: string (required, 'BANK_DEPOSIT'|'CASH_HANDOVER')
     //      - reference_no / referenceNo: string (optional, 0..100 chars) or null
     //      - expected_amount / expectedAmount: number (required)
@@ -99,7 +101,9 @@ service cloud.firestore {
     //      - is_replenished / isReplenished: int (0 or 1) or bool (optional)
     //      - replenished_at / replenishedAt: string (optional, 0..50 chars) or null
     //      - wallet_replenishment_id / walletReplenishmentId: string (optional, 0..128 chars) or null
-    //      - created_at / createdAt: string (required, 1..50 chars, immutable)
+    //      - linked_harvests_count / linkedHarvestsCount: number (optional)
+    //      - linked_harvests / linkedHarvests: list (optional, max 100 items)
+    //      - created_at / createdAt: string (optional, 1..50 chars, immutable)
     //
     // 6. wallet_replenishments
     //    Document ID: Replenishment ID (e.g. 'rep_1730000000_abc')
@@ -112,24 +116,26 @@ service cloud.firestore {
     //      - replenished_at / replenishedAt: string (required, 1..50 chars)
     //      - notes: string (optional, 0..1000 chars) or null
     //      - linked_deposit_ids / linkedDepositIds: list (optional, max 100 items)
-    //      - created_at / createdAt: string (required, 1..50 chars, immutable)
+    //      - linked_deposits_count / linkedDepositsCount: number (optional)
+    //      - balance_before / balanceBefore: number (optional)
+    //      - computed_new_balance / computedNewBalance: number (optional)
+    //      - created_at / createdAt: string (optional, 1..50 chars, immutable)
     //
-    // 7. auth_pins (SECURITY CRITICAL: PIN HASHES)
-    //    Document ID: Pin ID
+    // 7. auth_pins
+    //    Document ID: Pin ID (e.g. 'pin_default_master')
     //    Fields:
-    //      - id: string
-    //      - label: string
-    //      - pin_hash: string (SHA-256)
-    //      - is_active: int or bool
-    //      - created_at: string
-    //      - updated_at: string
-    //    ACCESS: STRICT ZERO ACCESS from client-side SDK. Only firebase-admin can access.
+    //      - id: string (required, 1..128 chars, immutable)
+    //      - label: string (required, 1..100 chars)
+    //      - pin_hash / pinHash: string (required, 1..128 chars)
+    //      - is_active / isActive: int (0 or 1) or bool (required)
+    //      - created_at / createdAt: string (required, 1..50 chars, immutable)
+    //      - updated_at / updatedAt: string (required, 1..50 chars)
     //
     // 8. system_settings
     //    Document ID: Setting Key (e.g. 'starting_capital')
     //    Fields:
     //      - key: string (required, 1..100 chars, immutable)
-    //      - value: string, number, or bool (required)
+    //      - value: string, number, or bool (required, max 5000 chars if string)
     //
     // 9. import_batches
     //    Document ID: Batch ID (e.g. 'batch_1730000000_abc')
@@ -138,7 +144,7 @@ service cloud.firestore {
     //      - file_name / fileName: string (required, 1..255 chars)
     //      - service_type / serviceType: string (optional, 0..50 chars)
     //      - target_machine_id / targetMachineId: string (required, 1..64 chars, immutable)
-    //      - total_rows / totalRows: number (required)
+    //      - total_rows / totalRows: number (required, >= 0)
     //      - inserted_rows / insertedRows: number (optional)
     //      - updated_rows / updatedRows: number (optional)
     //      - skipped_rows / skippedRows: number (optional)
@@ -149,18 +155,6 @@ service cloud.firestore {
     // ===============================================================
     // Helper Functions
     // ===============================================================
-
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    // Role-Based Access Control: verified admin custom claim or token role
-    function isAdmin() {
-      return isAuthenticated() && (
-        request.auth.token.role == 'admin' ||
-        request.auth.token.admin == true
-      );
-    }
 
     function hasRequiredFields(fields) {
       return request.resource.data.keys().hasAll(fields);
@@ -296,6 +290,12 @@ service cloud.firestore {
              validOptionalNumber(data, 'totalDeducted') &&
              validOptionalNumber(data, 'net_adjustment') &&
              validOptionalNumber(data, 'netAdjustment') &&
+             validOptionalString(data, 'adjustment_type', 0, 20) &&
+             validOptionalString(data, 'adjustmentType', 0, 20) &&
+             validOptionalNumber(data, 'adjustment_amount') &&
+             validOptionalNumber(data, 'adjustmentAmount') &&
+             validOptionalString(data, 'adjustment_reason', 0, 500) &&
+             validOptionalString(data, 'adjustmentReason', 0, 500) &&
              validOptionalString(data, 'adjustments_json', 0, 20000) &&
              validOptionalString(data, 'adjustmentsJson', 0, 20000) &&
              validOptionalList(data, 'adjustments', 100) &&
@@ -398,6 +398,25 @@ service cloud.firestore {
              validOptionalString(data, 'createdAt', 1, 50);
     }
 
+    function isValidAuthPin(data) {
+      let pinHashValid = ('pin_hash' in data && validString(data, 'pin_hash', 1, 128)) ||
+                         ('pinHash' in data && validString(data, 'pinHash', 1, 128));
+      let isActiveValid = ('is_active' in data && (data.is_active is bool || (data.is_active is int && (data.is_active == 0 || data.is_active == 1)))) ||
+                          ('isActive' in data && (data.isActive is bool || (data.isActive is int && (data.isActive == 0 || data.isActive == 1))));
+      let createdAtValid = ('created_at' in data && validString(data, 'created_at', 1, 50)) ||
+                           ('createdAt' in data && validString(data, 'createdAt', 1, 50));
+      let updatedAtValid = ('updated_at' in data && validString(data, 'updated_at', 1, 50)) ||
+                           ('updatedAt' in data && validString(data, 'updatedAt', 1, 50));
+
+      return hasRequiredFields(['id', 'label']) &&
+             validString(data, 'id', 1, 128) &&
+             validString(data, 'label', 1, 100) &&
+             pinHashValid &&
+             isActiveValid &&
+             createdAtValid &&
+             updatedAtValid;
+    }
+
     function isValidSystemSetting(data) {
       return hasRequiredFields(['key', 'value']) &&
              validString(data, 'key', 1, 100) &&
@@ -439,102 +458,88 @@ service cloud.firestore {
     }
 
     // ===============================================================
-    // Collection Rules
+    // Collection Rules for Static SPA Client Web SDK
     // ===============================================================
 
     // 1. Machines collection
     match /machines/{machineId} {
-      allow read: if isAdmin();
-      allow create: if isAdmin() &&
-                       isValidMachine(request.resource.data);
-      allow update: if isAdmin() &&
-                       isValidMachine(request.resource.data) &&
+      allow read: if true;
+      allow create: if isValidMachine(request.resource.data);
+      allow update: if isValidMachine(request.resource.data) &&
                        areImmutableFieldsUnchanged(['id', 'created_at', 'createdAt']);
-      allow delete: if isAdmin();
+      allow delete: if true;
     }
 
     // 2. Transactions collection
     match /transactions/{transactionId} {
-      allow read: if isAdmin();
-      allow create: if isAdmin() &&
-                       isValidTransaction(request.resource.data);
-      allow update: if isAdmin() &&
-                       isValidTransaction(request.resource.data) &&
+      allow read: if true;
+      allow create: if isValidTransaction(request.resource.data);
+      allow update: if isValidTransaction(request.resource.data) &&
                        areImmutableFieldsUnchanged(['id', 'created_at', 'createdAt']);
-      allow delete: if isAdmin();
+      allow delete: if true;
     }
 
     // 3. Cash Harvests collection
     match /cash_harvests/{harvestId} {
-      allow read: if isAdmin();
-      allow create: if isAdmin() &&
-                       isValidCashHarvest(request.resource.data);
-      allow update: if isAdmin() &&
-                       isValidCashHarvest(request.resource.data) &&
+      allow read: if true;
+      allow create: if isValidCashHarvest(request.resource.data);
+      allow update: if isValidCashHarvest(request.resource.data) &&
                        areImmutableFieldsUnchanged(['id', 'machine_id', 'machineId', 'created_at', 'createdAt']);
-      allow delete: if isAdmin();
+      allow delete: if true;
     }
 
     // 4. Cash Harvest Adjustments collection
     match /cash_harvest_adjustments/{adjustmentId} {
-      allow read: if isAdmin();
-      allow create: if isAdmin() &&
-                       isValidCashHarvestAdjustment(request.resource.data);
-      allow update: if isAdmin() &&
-                       isValidCashHarvestAdjustment(request.resource.data) &&
+      allow read: if true;
+      allow create: if isValidCashHarvestAdjustment(request.resource.data);
+      allow update: if isValidCashHarvestAdjustment(request.resource.data) &&
                        areImmutableFieldsUnchanged(['id', 'harvest_id', 'harvestId', 'created_at', 'createdAt']);
-      allow delete: if isAdmin();
+      allow delete: if true;
     }
 
     // 5. Deposited Collections collection
     match /deposited_collections/{depositId} {
-      allow read: if isAdmin();
-      allow create: if isAdmin() &&
-                       isValidDepositedCollection(request.resource.data);
-      allow update: if isAdmin() &&
-                       isValidDepositedCollection(request.resource.data) &&
+      allow read: if true;
+      allow create: if isValidDepositedCollection(request.resource.data);
+      allow update: if isValidDepositedCollection(request.resource.data) &&
                        areImmutableFieldsUnchanged(['id', 'created_at', 'createdAt']);
-      allow delete: if isAdmin();
+      allow delete: if true;
     }
 
     // 6. Wallet Replenishments collection
     match /wallet_replenishments/{replenishmentId} {
-      allow read: if isAdmin();
-      allow create: if isAdmin() &&
-                       isValidWalletReplenishment(request.resource.data);
-      allow update: if isAdmin() &&
-                       isValidWalletReplenishment(request.resource.data) &&
+      allow read: if true;
+      allow create: if isValidWalletReplenishment(request.resource.data);
+      allow update: if isValidWalletReplenishment(request.resource.data) &&
                        areImmutableFieldsUnchanged(['id', 'created_at', 'createdAt']);
-      allow delete: if isAdmin();
+      allow delete: if true;
     }
 
-    // 7. Auth PINs collection (Credentials Vault - ZERO CLIENT ACCESS)
-    // Client SDK callers (even authenticated tokens) cannot read hashes or write PINs.
-    // Server-side /api/auth routes execute exclusively via firebase-admin.
+    // 7. Auth PINs collection
     match /auth_pins/{pinId} {
-      allow read, write: if false;
+      allow read: if true;
+      allow create: if isValidAuthPin(request.resource.data);
+      allow update: if isValidAuthPin(request.resource.data) &&
+                       areImmutableFieldsUnchanged(['id', 'created_at', 'createdAt']);
+      allow delete: if true;
     }
 
     // 8. System Settings collection
     match /system_settings/{settingKey} {
-      allow read: if isAdmin();
-      allow create: if isAdmin() &&
-                       isValidSystemSetting(request.resource.data);
-      allow update: if isAdmin() &&
-                       isValidSystemSetting(request.resource.data) &&
+      allow read: if true;
+      allow create: if isValidSystemSetting(request.resource.data);
+      allow update: if isValidSystemSetting(request.resource.data) &&
                        areImmutableFieldsUnchanged(['key']);
-      allow delete: if isAdmin();
+      allow delete: if true;
     }
 
     // 9. Import Batches collection
     match /import_batches/{batchId} {
-      allow read: if isAdmin();
-      allow create: if isAdmin() &&
-                       isValidImportBatch(request.resource.data);
-      allow update: if isAdmin() &&
-                       isValidImportBatch(request.resource.data) &&
+      allow read: if true;
+      allow create: if isValidImportBatch(request.resource.data);
+      allow update: if isValidImportBatch(request.resource.data) &&
                        areImmutableFieldsUnchanged(['id', 'target_machine_id', 'targetMachineId', 'imported_at', 'importedAt']);
-      allow delete: if isAdmin();
+      allow delete: if true;
     }
   }
 }

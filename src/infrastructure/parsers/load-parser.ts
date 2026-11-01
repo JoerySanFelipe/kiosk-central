@@ -5,11 +5,12 @@ import { generateDeterministicTransactionId } from '@/domain/deduplication';
 import { normalizeLpbDate } from './date-util';
 
 export function parseLoadFile(
-  buffer: Buffer,
+  buffer: Buffer | ArrayBuffer | Uint8Array,
   targetMachineId: string,
   batchId: string
 ): Transaction[] {
-  const wb = XLSX.read(buffer, { type: 'buffer' });
+  const data = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer;
+  const wb = XLSX.read(data, { type: data instanceof Uint8Array ? 'array' : 'buffer' });
   const sheetName = wb.SheetNames[0];
   const ws = wb.Sheets[sheetName];
   const rawRows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(ws);

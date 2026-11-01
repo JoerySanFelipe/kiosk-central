@@ -1,5 +1,6 @@
 'use client';
 
+import '@/infrastructure/client-api/interceptor';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from '@/presentation/components/layout/Sidebar';
 import { Header } from '@/presentation/components/layout/Header';

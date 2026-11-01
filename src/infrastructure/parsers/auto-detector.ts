@@ -13,15 +13,20 @@ export interface ParseResult {
 
 export function autoDetectAndParse(
   fileName: string,
-  buffer: Buffer,
+  buffer: Buffer | ArrayBuffer | Uint8Array,
   targetMachineId: string,
   batchId: string
 ): ParseResult {
   const lowerName = fileName.toLowerCase();
+  const data = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer;
 
   // 1. CSV Check: Piso WiFi
   if (lowerName.endsWith('.csv')) {
-    const textContent = buffer.toString('utf-8');
+    const textContent = typeof buffer === 'string'
+      ? buffer
+      : ('toString' in buffer && typeof buffer.toString === 'function' && !(buffer instanceof ArrayBuffer) && !(buffer instanceof Uint8Array))
+        ? (buffer as any).toString('utf-8')
+        : new TextDecoder('utf-8').decode(data);
     if (textContent.includes('MAC') || textContent.includes('Station') || textContent.includes('Trans Time')) {
       const transactions = parsePisoWifiFile(textContent, targetMachineId, batchId);
       return {
@@ -34,7 +39,7 @@ export function autoDetectAndParse(
 
   // 2. Excel Check: Inspect Workbook Sheets & Headers
   if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')) {
-    const wb = XLSX.read(buffer, { type: 'buffer' });
+    const wb = XLSX.read(data, { type: data instanceof Uint8Array ? 'array' : 'buffer' });
     const sheetName = wb.SheetNames[0] || '';
     const lowerSheet = sheetName.toLowerCase();
 
