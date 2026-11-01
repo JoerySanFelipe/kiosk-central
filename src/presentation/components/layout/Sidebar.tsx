@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { LayoutDashboard, Settings, Server, Wallet, Clock, Building2, UserMinus } from 'lucide-react';
+import { LayoutDashboard, Settings, Server, Wallet, Clock, Building2, UserMinus, Scale } from 'lucide-react';
 import { Machine } from '@/domain/types';
 
 interface SidebarProps {
@@ -130,8 +130,19 @@ export function Sidebar({
         {/* Financial Section */}
         <div className="space-y-1">
           <div className="px-3 pb-1 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-            Financial
+            Financial & Audit
           </div>
+          <button
+            onClick={() => onSelectTab('sales_audit')}
+            className={`flex w-full items-center space-x-3 rounded-xl px-3 py-2 text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === 'sales_audit'
+                ? 'bg-[#8A0000] text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
+            }`}
+          >
+            <Scale className={`h-4 w-4 ${activeTab === 'sales_audit' ? 'text-white' : 'text-slate-400'}`} />
+            <span>Sales Audit</span>
+          </button>
           <button
             onClick={() => onSelectTab('deposited_collection')}
             className={`flex w-full items-center space-x-3 rounded-xl px-3 py-2 text-xs font-semibold transition-all cursor-pointer ${

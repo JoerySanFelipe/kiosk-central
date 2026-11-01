@@ -217,3 +217,56 @@ export interface ServiceMetric {
   walletDeduction: number;
   transactionCount: number;
 }
+
+export interface SalesAuditReport {
+  cycle: {
+    reloadDate: string;
+    reloadAmount: number;
+    reloadReference: string;
+    allowanceBefore: number;
+    initialAllowance: number;
+    convenienceFeesEarned: number;
+    pisoWifiSales: number;
+    cashAdjustmentsSurplus: number;
+    totalCycleAccountability: number;
+    currentWalletBalance: number;
+    bankDepositsPostReload: number;
+    collectorCashOnHand: number;
+    kioskCashInVaultPostReload: number;
+    ownerPersonalDraws: number;
+    totalLocatedAssets: number;
+    variance: number;
+    isBalanced: boolean;
+    transactionCount: number;
+    customerCashInserted: number;
+    walletDrained: number;
+  };
+  allTime: {
+    startingCapital: number;
+    totalGrossVolume: number;
+    totalNetProfit: number;
+    totalPersonalDraws: number;
+    expectedTotalWorkingAssets: number;
+    currentWalletBalance: number;
+    bankDepositsPending: number;
+    collectorCashOnHand: number;
+    kioskCashInVaultTotal: number;
+    totalTangibleAssets: number;
+    capitalVariance: number;
+  };
+  stations: {
+    wallet: { title: string; amount: number; description: string; status: 'active' | 'warning' };
+    vault: { title: string; amount: number; description: string; m1Amount: number; m2Amount: number };
+    collector: { title: string; amount: number; description: string; pendingHarvestsCount: number };
+    bank: { title: string; amount: number; description: string; pendingDepositsCount: number };
+    drawsAndProfits: { title: string; personalDraws: number; netProfit: number; description: string };
+  };
+  machines: {
+    id: string;
+    name: string;
+    allTimeProfit: number;
+    currentVaultCash: number;
+    totalTransactions: number;
+    totalVolume: number;
+  }[];
+}

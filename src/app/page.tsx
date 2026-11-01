@@ -12,6 +12,7 @@ import { SettingsView } from '@/presentation/components/settings/SettingsView';
 import { DepositedCollectionView } from '@/presentation/components/deposit/DepositedCollectionView';
 import { WalletCashInView } from '@/presentation/components/wallet/WalletCashInView';
 import { PersonalWithdrawalsView } from '@/presentation/components/financial/PersonalWithdrawalsView';
+import { SalesAuditView } from '@/presentation/components/audit/SalesAuditView';
 import { ImportModal } from '@/presentation/components/import/ImportModal';
 import { MachineDashboardView } from '@/presentation/components/machine/MachineDashboardView';
 import { EditTransactionModal } from '@/presentation/components/dashboard/EditTransactionModal';
@@ -200,6 +201,8 @@ export default function App() {
   let pageTitle = 'Dashboard';
   if (currentMachine) {
     pageTitle = `${currentMachine.name} (Terminal Dashboard)`;
+  } else if (activeTab === 'sales_audit') {
+    pageTitle = 'Sales & Cash Reconciliation Audit';
   } else if (activeTab === 'deposited_collection') {
     pageTitle = 'Deposited Collection & Handover';
   } else if (activeTab === 'wallet_cash_in') {
@@ -497,6 +500,8 @@ export default function App() {
                   onEditTransaction={(t) => setEditingTransaction(t)}
                 />
               </>
+            ) : activeTab === 'sales_audit' ? (
+              <SalesAuditView currency={currency} />
             ) : activeTab === 'deposited_collection' ? (
               <DepositedCollectionView currency={currency} />
             ) : activeTab === 'wallet_cash_in' ? (

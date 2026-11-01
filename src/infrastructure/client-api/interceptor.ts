@@ -5,6 +5,7 @@ import { getHarvestsByMachine, getHarvestById, recordHarvest, updateHarvest, del
 import { getDepositedCollections, getDepositedCollectionById, recordDepositedCollection, deleteDepositedCollection, toggleDepositReplenished, getPendingHarvests, getUnreplenishedDeposits, getDepositSummary } from '../repositories/deposit-repo';
 import { listReplenishments, createReplenishment, deleteReplenishment, getReplenishmentTotal } from '../repositories/replenishment-repo';
 import { verifyPin, listAuthPins, createAuthPin, toggleAuthPin, deleteAuthPin } from '../repositories/auth-repo';
+import { computeSalesAuditReport } from '../repositories/audit-repo';
 import { autoDetectAndParse } from '../parsers/auto-detector';
 import { getFirestoreDb } from '../firebase/admin';
 
@@ -396,6 +397,12 @@ export function installClientApiRouter() {
           },
           files: results,
         });
+      }
+
+      // 17. Sales Audit Report
+      if (pathname === '/api/audit' && method === 'GET') {
+        const report = await computeSalesAuditReport();
+        return jsonResponse(report);
       }
 
       // Fallback
