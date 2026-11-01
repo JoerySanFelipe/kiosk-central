@@ -10,6 +10,16 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: 'Kiosk Central',
   description: 'Centralized sales management, deduplication, and financial reconciliation for Kiosks and Piso WiFi',
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+    },
+  },
   icons: {
     icon: [
       { url: '/favicon.ico?v=2' },
