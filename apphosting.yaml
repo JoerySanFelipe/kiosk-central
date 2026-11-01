@@ -1,0 +1,14 @@
+# Settings for Cloud Run / Firebase App Hosting
+runConfig:
+  minInstances: 0
+  maxInstances: 2
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 1024
+
+env:
+  - variable: FIREBASE_PROJECT_ID
+    value: kiosk-central-77c22
+  - variable: FIREBASE_STORAGE_BUCKET
+    value: kiosk-central-77c22.firebasestorage.app
+

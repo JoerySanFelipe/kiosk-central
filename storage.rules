@@ -1,0 +1,13 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /slips/{allPaths=**} {
+      allow read: if true;
+      allow write: if false; // Uploads are strictly handled via server-side route handlers with firebase-admin
+    }
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

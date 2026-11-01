@@ -1,0 +1,540 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Application: Kiosk Central (Financial Kiosk & Piso WiFi Management)
+    // Primary Architecture: Next.js 16 Server-Side App Router with firebase-admin.
+    // Client-Side Security: Public visitors have NO direct read or write access.
+    // Server-side Route Handlers (/api/*) operate via privileged Firebase Admin SDK.
+    // For direct client connections, access requires verified administrative claims.
+    //
+    // Collections:
+    //
+    // 1. machines
+    //    Document ID: Machine ID (e.g. 'm_abc123' or custom string)
+    //    Fields:
+    //      - id: string (required, 1..64 chars, immutable)
+    //      - name: string (required, 1..100 chars)
+    //      - contact_number / contactNumber: string (optional, 0..50 chars) or null
+    //      - location: string (optional, 0..200 chars) or null
+    //      - station_name / stationName: string (optional, 0..100 chars)
+    //      - is_default / isDefault: int (0 or 1) or bool (optional)
+    //      - created_at / createdAt: string (optional, 0..50 chars, immutable)
+    //
+    // 2. transactions
+    //    Document ID: Deterministic unique key (e.g. 'cash_in:2046476261933')
+    //    Fields:
+    //      - id: string (required, 1..128 chars, immutable)
+    //      - machine_id / machineId: string (required, 1..64 chars)
+    //      - service_type / serviceType: string (required, 'PISO_WIFI'|'CASH_IN'|'E_LOAD'|'BILLS_PAYMENT')
+    //      - reference_no / referenceNo: string (optional, 0..100 chars) or null
+    //      - transaction_time / transactionTime: string (required, 1..50 chars)
+    //      - amount: number (required)
+    //      - fee: number (required)
+    //      - inserted_amount / insertedAmount: number (required)
+    //      - wallet_deduction / walletDeduction: number (required)
+    //      - provider_cost / providerCost: number (required)
+    //      - net_profit / netProfit: number (required)
+    //      - old_balance / oldBalance: number (optional) or null
+    //      - new_balance / newBalance: number (optional) or null
+    //      - status: string (required, 'SUCCEEDED'|'FAILED'|'PENDING')
+    //      - notes: string (optional, 0..500 chars) or null
+    //      - is_personal_draw / isPersonalDraw: int (0 or 1) or bool (optional)
+    //      - import_batch_id / importBatchId: string (optional, 0..128 chars) or null
+    //      - created_at / createdAt: string (required, 1..50 chars, immutable)
+    //
+    // 3. cash_harvests
+    //    Document ID: Harvest ID (e.g. 'harvest_1730000000_abc')
+    //    Fields:
+    //      - id: string (required, 1..128 chars, immutable)
+    //      - machine_id / machineId: string (required, 1..64 chars, immutable)
+    //      - harvested_at / harvestedAt: string (required, 1..50 chars)
+    //      - reporting_date / reportingDate: string (optional, 0..50 chars) or null
+    //      - report_name / reportName: string (optional, 0..100 chars) or null
+    //      - raw_expected_amount / rawExpectedAmount: number (optional) or null
+    //      - expected_amount / expectedAmount: number (required)
+    //      - base_amount / baseAmount: number (optional) or null
+    //      - total_added / totalAdded: number (optional)
+    //      - total_deducted / totalDeducted: number (optional)
+    //      - net_adjustment / netAdjustment: number (optional)
+    //      - adjustments_json / adjustmentsJson: string (optional, 0..20000 chars) or null
+    //      - actual_amount / actualAmount: number (required)
+    //      - variance: number (required)
+    //      - collected_by / collectedBy: string (required, 1..100 chars)
+    //      - deposited_collection_id / depositedCollectionId: string (optional, 0..128 chars) or null
+    //      - is_deposited / isDeposited: int (0 or 1) or bool (optional)
+    //      - slip_image_url / slipImageUrl: string (optional, 0..2000 chars) or null
+    //      - notes: string (optional, 0..1000 chars) or null
+    //      - created_at / createdAt: string (required, 1..50 chars, immutable)
+    //
+    // 4. cash_harvest_adjustments
+    //    Document ID: Adjustment ID (e.g. 'adj_1730000000_abc')
+    //    Fields:
+    //      - id: string (required, 1..128 chars, immutable)
+    //      - harvest_id / harvestId: string (required, 1..128 chars, immutable)
+    //      - type: string (required, 'ADD'|'DEDUCT')
+    //      - target: string (optional, 'EXPECTED'|'PHYSICAL')
+    //      - amount: number (required)
+    //      - description: string (required, 1..500 chars)
+    //      - created_at / createdAt: string (optional, 0..50 chars, immutable)
+    //
+    // 5. deposited_collections
+    //    Document ID: Deposit ID (e.g. 'dep_1730000000_abc')
+    //    Fields:
+    //      - id: string (required, 1..128 chars, immutable)
+    //      - deposit_date / depositDate: string (required, 1..50 chars)
+    //      - deposit_type / depositType: string (required, 'BANK_DEPOSIT'|'CASH_HANDOVER')
+    //      - reference_no / referenceNo: string (optional, 0..100 chars) or null
+    //      - expected_amount / expectedAmount: number (required)
+    //      - actual_amount / actualAmount: number (required)
+    //      - variance: number (required)
+    //      - deposited_by / depositedBy: string (required, 1..100 chars)
+    //      - received_by / receivedBy: string (optional, 0..100 chars) or null
+    //      - slip_image_url / slipImageUrl: string (optional, 0..2000 chars) or null
+    //      - notes: string (optional, 0..1000 chars) or null
+    //      - is_replenished / isReplenished: int (0 or 1) or bool (optional)
+    //      - replenished_at / replenishedAt: string (optional, 0..50 chars) or null
+    //      - wallet_replenishment_id / walletReplenishmentId: string (optional, 0..128 chars) or null
+    //      - created_at / createdAt: string (required, 1..50 chars, immutable)
+    //
+    // 6. wallet_replenishments
+    //    Document ID: Replenishment ID (e.g. 'rep_1730000000_abc')
+    //    Fields:
+    //      - id: string (required, 1..128 chars, immutable)
+    //      - amount: number (required, > 0)
+    //      - source: string (optional, 0..100 chars) or null
+    //      - reference_no / referenceNo: string (optional, 0..100 chars) or null
+    //      - receipt_image_url / receiptImageUrl: string (optional, 0..2000 chars) or null
+    //      - replenished_at / replenishedAt: string (required, 1..50 chars)
+    //      - notes: string (optional, 0..1000 chars) or null
+    //      - linked_deposit_ids / linkedDepositIds: list (optional, max 100 items)
+    //      - created_at / createdAt: string (required, 1..50 chars, immutable)
+    //
+    // 7. auth_pins (SECURITY CRITICAL: PIN HASHES)
+    //    Document ID: Pin ID
+    //    Fields:
+    //      - id: string
+    //      - label: string
+    //      - pin_hash: string (SHA-256)
+    //      - is_active: int or bool
+    //      - created_at: string
+    //      - updated_at: string
+    //    ACCESS: STRICT ZERO ACCESS from client-side SDK. Only firebase-admin can access.
+    //
+    // 8. system_settings
+    //    Document ID: Setting Key (e.g. 'starting_capital')
+    //    Fields:
+    //      - key: string (required, 1..100 chars, immutable)
+    //      - value: string, number, or bool (required)
+    //
+    // 9. import_batches
+    //    Document ID: Batch ID (e.g. 'batch_1730000000_abc')
+    //    Fields:
+    //      - id: string (required, 1..128 chars, immutable)
+    //      - file_name / fileName: string (required, 1..255 chars)
+    //      - service_type / serviceType: string (optional, 0..50 chars)
+    //      - target_machine_id / targetMachineId: string (required, 1..64 chars, immutable)
+    //      - total_rows / totalRows: number (required)
+    //      - inserted_rows / insertedRows: number (optional)
+    //      - updated_rows / updatedRows: number (optional)
+    //      - skipped_rows / skippedRows: number (optional)
+    //      - imported_at / importedAt: string (required, 1..50 chars, immutable)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Role-Based Access Control: verified admin custom claim or token role
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.role == 'admin' ||
+        request.auth.token.admin == true
+      );
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    function validString(data, field, minLen, maxLen) {
+      return field in data &&
+             data[field] is string &&
+             data[field].size() >= minLen &&
+             data[field].size() <= maxLen;
+    }
+
+    function validOptionalString(data, field, minLen, maxLen) {
+      return !(field in data) ||
+             data[field] == null ||
+             (data[field] is string &&
+              data[field].size() >= minLen &&
+              data[field].size() <= maxLen);
+    }
+
+    function validNumber(data, field) {
+      return field in data &&
+             data[field] is number;
+    }
+
+    function validOptionalNumber(data, field) {
+      return !(field in data) ||
+             data[field] == null ||
+             data[field] is number;
+    }
+
+    function validOptionalBoolOrInt(data, field) {
+      return !(field in data) ||
+             data[field] == null ||
+             data[field] is bool ||
+             (data[field] is int && (data[field] == 0 || data[field] == 1));
+    }
+
+    function validOptionalList(data, field, maxSize) {
+      return !(field in data) ||
+             data[field] == null ||
+             (data[field] is list && data[field].size() <= maxSize);
+    }
+
+    // ===============================================================
+    // Domain Validators (Applied to both create and update)
+    // ===============================================================
+
+    function isValidMachine(data) {
+      return hasRequiredFields(['id', 'name']) &&
+             validString(data, 'id', 1, 64) &&
+             validString(data, 'name', 1, 100) &&
+             validOptionalString(data, 'contact_number', 0, 50) &&
+             validOptionalString(data, 'contactNumber', 0, 50) &&
+             validOptionalString(data, 'location', 0, 200) &&
+             validOptionalString(data, 'station_name', 0, 100) &&
+             validOptionalString(data, 'stationName', 0, 100) &&
+             validOptionalBoolOrInt(data, 'is_default') &&
+             validOptionalBoolOrInt(data, 'isDefault') &&
+             validOptionalString(data, 'created_at', 0, 50) &&
+             validOptionalString(data, 'createdAt', 0, 50);
+    }
+
+    function isValidTransaction(data) {
+      let serviceType = 'service_type' in data ? data.service_type : ('serviceType' in data ? data.serviceType : '');
+      let status = 'status' in data ? data.status : '';
+      let validServices = ['PISO_WIFI', 'CASH_IN', 'E_LOAD', 'BILLS_PAYMENT'];
+      let validStatuses = ['SUCCEEDED', 'FAILED', 'PENDING'];
+
+      return hasRequiredFields(['id', 'amount', 'inserted_amount', 'wallet_deduction', 'status']) &&
+             validString(data, 'id', 1, 128) &&
+             serviceType in validServices &&
+             status in validStatuses &&
+             validNumber(data, 'amount') &&
+             validNumber(data, 'inserted_amount') &&
+             validNumber(data, 'wallet_deduction') &&
+             validOptionalNumber(data, 'fee') &&
+             validOptionalNumber(data, 'provider_cost') &&
+             validOptionalNumber(data, 'providerCost') &&
+             validOptionalNumber(data, 'net_profit') &&
+             validOptionalNumber(data, 'netProfit') &&
+             validOptionalNumber(data, 'old_balance') &&
+             validOptionalNumber(data, 'oldBalance') &&
+             validOptionalNumber(data, 'new_balance') &&
+             validOptionalNumber(data, 'newBalance') &&
+             validOptionalString(data, 'machine_id', 1, 64) &&
+             validOptionalString(data, 'machineId', 1, 64) &&
+             validOptionalString(data, 'reference_no', 0, 100) &&
+             validOptionalString(data, 'referenceNo', 0, 100) &&
+             validOptionalString(data, 'account_or_phone', 0, 50) &&
+             validOptionalString(data, 'accountOrPhone', 0, 50) &&
+             validOptionalString(data, 'customer_name', 0, 100) &&
+             validOptionalString(data, 'customerName', 0, 100) &&
+             validOptionalString(data, 'provider_or_biller', 0, 50) &&
+             validOptionalString(data, 'providerOrBiller', 0, 50) &&
+             validOptionalString(data, 'sub_type', 0, 50) &&
+             validOptionalString(data, 'subType', 0, 50) &&
+             validOptionalString(data, 'notes', 0, 500) &&
+             validOptionalString(data, 'import_batch_id', 0, 128) &&
+             validOptionalString(data, 'importBatchId', 0, 128) &&
+             validOptionalBoolOrInt(data, 'is_personal_draw') &&
+             validOptionalBoolOrInt(data, 'isPersonalDraw') &&
+             validOptionalString(data, 'transaction_time', 1, 50) &&
+             validOptionalString(data, 'transactionTime', 1, 50) &&
+             validOptionalString(data, 'created_at', 1, 50) &&
+             validOptionalString(data, 'createdAt', 1, 50);
+    }
+
+    function isValidCashHarvest(data) {
+      let machineIdValid = ('machine_id' in data && validString(data, 'machine_id', 1, 64)) ||
+                           ('machineId' in data && validString(data, 'machineId', 1, 64));
+      let collectorValid = ('collected_by' in data && validString(data, 'collected_by', 1, 100)) ||
+                           ('collectedBy' in data && validString(data, 'collectedBy', 1, 100));
+
+      return hasRequiredFields(['id', 'expected_amount', 'actual_amount', 'variance']) &&
+             validString(data, 'id', 1, 128) &&
+             machineIdValid &&
+             collectorValid &&
+             validNumber(data, 'expected_amount') &&
+             validNumber(data, 'actual_amount') &&
+             validNumber(data, 'variance') &&
+             validOptionalNumber(data, 'base_amount') &&
+             validOptionalNumber(data, 'baseAmount') &&
+             validOptionalNumber(data, 'raw_expected_amount') &&
+             validOptionalNumber(data, 'rawExpectedAmount') &&
+             validOptionalNumber(data, 'total_added') &&
+             validOptionalNumber(data, 'totalAdded') &&
+             validOptionalNumber(data, 'total_deducted') &&
+             validOptionalNumber(data, 'totalDeducted') &&
+             validOptionalNumber(data, 'net_adjustment') &&
+             validOptionalNumber(data, 'netAdjustment') &&
+             validOptionalString(data, 'adjustments_json', 0, 20000) &&
+             validOptionalString(data, 'adjustmentsJson', 0, 20000) &&
+             validOptionalList(data, 'adjustments', 100) &&
+             validOptionalString(data, 'reporting_date', 0, 50) &&
+             validOptionalString(data, 'reportingDate', 0, 50) &&
+             validOptionalString(data, 'report_name', 0, 100) &&
+             validOptionalString(data, 'reportName', 0, 100) &&
+             validOptionalString(data, 'deposited_collection_id', 0, 128) &&
+             validOptionalString(data, 'depositedCollectionId', 0, 128) &&
+             validOptionalBoolOrInt(data, 'is_deposited') &&
+             validOptionalBoolOrInt(data, 'isDeposited') &&
+             validOptionalString(data, 'slip_image_url', 0, 2000) &&
+             validOptionalString(data, 'slipImageUrl', 0, 2000) &&
+             validOptionalString(data, 'notes', 0, 1000) &&
+             validOptionalString(data, 'harvested_at', 1, 50) &&
+             validOptionalString(data, 'harvestedAt', 1, 50) &&
+             validOptionalString(data, 'created_at', 1, 50) &&
+             validOptionalString(data, 'createdAt', 1, 50) &&
+             validOptionalString(data, 'updated_at', 0, 50) &&
+             validOptionalString(data, 'updatedAt', 0, 50);
+    }
+
+    function isValidCashHarvestAdjustment(data) {
+      let adjType = 'type' in data ? data.type : '';
+      let harvestIdValid = ('harvest_id' in data && validString(data, 'harvest_id', 1, 128)) ||
+                           ('harvestId' in data && validString(data, 'harvestId', 1, 128));
+
+      return hasRequiredFields(['id', 'type', 'amount', 'description']) &&
+             validString(data, 'id', 1, 128) &&
+             harvestIdValid &&
+             (adjType == 'ADD' || adjType == 'DEDUCT') &&
+             validNumber(data, 'amount') &&
+             data.amount > 0 &&
+             validString(data, 'description', 1, 500) &&
+             validOptionalString(data, 'target', 0, 20) &&
+             validOptionalString(data, 'created_at', 0, 50) &&
+             validOptionalString(data, 'createdAt', 0, 50);
+    }
+
+    function isValidDepositedCollection(data) {
+      let depType = 'deposit_type' in data ? data.deposit_type : ('depositType' in data ? data.depositType : '');
+      let validDepositTypes = ['BANK_DEPOSIT', 'CASH_HANDOVER'];
+      let depositedByValid = ('deposited_by' in data && validString(data, 'deposited_by', 1, 100)) ||
+                             ('depositedBy' in data && validString(data, 'depositedBy', 1, 100));
+
+      return hasRequiredFields(['id', 'expected_amount', 'actual_amount', 'variance']) &&
+             validString(data, 'id', 1, 128) &&
+             depType in validDepositTypes &&
+             depositedByValid &&
+             validNumber(data, 'expected_amount') &&
+             validNumber(data, 'actual_amount') &&
+             validNumber(data, 'variance') &&
+             validOptionalString(data, 'deposit_date', 1, 50) &&
+             validOptionalString(data, 'depositDate', 1, 50) &&
+             validOptionalString(data, 'reference_no', 0, 100) &&
+             validOptionalString(data, 'referenceNo', 0, 100) &&
+             validOptionalString(data, 'received_by', 0, 100) &&
+             validOptionalString(data, 'receivedBy', 0, 100) &&
+             validOptionalString(data, 'slip_image_url', 0, 2000) &&
+             validOptionalString(data, 'slipImageUrl', 0, 2000) &&
+             validOptionalString(data, 'notes', 0, 1000) &&
+             validOptionalBoolOrInt(data, 'is_replenished') &&
+             validOptionalBoolOrInt(data, 'isReplenished') &&
+             validOptionalString(data, 'replenished_at', 0, 50) &&
+             validOptionalString(data, 'replenishedAt', 0, 50) &&
+             validOptionalString(data, 'wallet_replenishment_id', 0, 128) &&
+             validOptionalString(data, 'walletReplenishmentId', 0, 128) &&
+             validOptionalNumber(data, 'linked_harvests_count') &&
+             validOptionalNumber(data, 'linkedHarvestsCount') &&
+             validOptionalList(data, 'linked_harvests', 100) &&
+             validOptionalList(data, 'linkedHarvests', 100) &&
+             validOptionalString(data, 'created_at', 1, 50) &&
+             validOptionalString(data, 'createdAt', 1, 50);
+    }
+
+    function isValidWalletReplenishment(data) {
+      let replenishedAtValid = ('replenished_at' in data && validString(data, 'replenished_at', 1, 50)) ||
+                               ('replenishedAt' in data && validString(data, 'replenishedAt', 1, 50));
+
+      return hasRequiredFields(['id', 'amount']) &&
+             validString(data, 'id', 1, 128) &&
+             validNumber(data, 'amount') &&
+             data.amount > 0 &&
+             replenishedAtValid &&
+             validOptionalString(data, 'source', 0, 100) &&
+             validOptionalString(data, 'reference_no', 0, 100) &&
+             validOptionalString(data, 'referenceNo', 0, 100) &&
+             validOptionalString(data, 'receipt_image_url', 0, 2000) &&
+             validOptionalString(data, 'receiptImageUrl', 0, 2000) &&
+             validOptionalString(data, 'notes', 0, 1000) &&
+             validOptionalList(data, 'linked_deposit_ids', 100) &&
+             validOptionalList(data, 'linkedDepositIds', 100) &&
+             validOptionalNumber(data, 'linked_deposits_count') &&
+             validOptionalNumber(data, 'linkedDepositsCount') &&
+             validOptionalNumber(data, 'balance_before') &&
+             validOptionalNumber(data, 'balanceBefore') &&
+             validOptionalNumber(data, 'computed_new_balance') &&
+             validOptionalNumber(data, 'computedNewBalance') &&
+             validOptionalString(data, 'created_at', 1, 50) &&
+             validOptionalString(data, 'createdAt', 1, 50);
+    }
+
+    function isValidSystemSetting(data) {
+      return hasRequiredFields(['key', 'value']) &&
+             validString(data, 'key', 1, 100) &&
+             (data.value is string || data.value is number || data.value is bool) &&
+             (data.value is string ? data.value.size() <= 5000 : true);
+    }
+
+    function isValidImportBatch(data) {
+      let fileNameValid = ('file_name' in data && validString(data, 'file_name', 1, 255)) ||
+                          ('fileName' in data && validString(data, 'fileName', 1, 255));
+      let targetMachineValid = ('target_machine_id' in data && validString(data, 'target_machine_id', 1, 64)) ||
+                               ('targetMachineId' in data && validString(data, 'targetMachineId', 1, 64));
+      let importedAtValid = ('imported_at' in data && validString(data, 'imported_at', 1, 50)) ||
+                            ('importedAt' in data && validString(data, 'importedAt', 1, 50));
+
+      return hasRequiredFields(['id', 'total_rows']) &&
+             validString(data, 'id', 1, 128) &&
+             fileNameValid &&
+             targetMachineValid &&
+             importedAtValid &&
+             validNumber(data, 'total_rows') &&
+             data.total_rows >= 0 &&
+             validOptionalNumber(data, 'inserted_rows') &&
+             validOptionalNumber(data, 'insertedRows') &&
+             validOptionalNumber(data, 'updated_rows') &&
+             validOptionalNumber(data, 'updatedRows') &&
+             validOptionalNumber(data, 'skipped_rows') &&
+             validOptionalNumber(data, 'skippedRows') &&
+             validOptionalString(data, 'service_type', 0, 50) &&
+             validOptionalString(data, 'serviceType', 0, 50);
+    }
+
+    // ===============================================================
+    // Root Level Default Deny
+    // ===============================================================
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    // 1. Machines collection
+    match /machines/{machineId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() &&
+                       isValidMachine(request.resource.data);
+      allow update: if isAdmin() &&
+                       isValidMachine(request.resource.data) &&
+                       areImmutableFieldsUnchanged(['id', 'created_at', 'createdAt']);
+      allow delete: if isAdmin();
+    }
+
+    // 2. Transactions collection
+    match /transactions/{transactionId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() &&
+                       isValidTransaction(request.resource.data);
+      allow update: if isAdmin() &&
+                       isValidTransaction(request.resource.data) &&
+                       areImmutableFieldsUnchanged(['id', 'created_at', 'createdAt']);
+      allow delete: if isAdmin();
+    }
+
+    // 3. Cash Harvests collection
+    match /cash_harvests/{harvestId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() &&
+                       isValidCashHarvest(request.resource.data);
+      allow update: if isAdmin() &&
+                       isValidCashHarvest(request.resource.data) &&
+                       areImmutableFieldsUnchanged(['id', 'machine_id', 'machineId', 'created_at', 'createdAt']);
+      allow delete: if isAdmin();
+    }
+
+    // 4. Cash Harvest Adjustments collection
+    match /cash_harvest_adjustments/{adjustmentId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() &&
+                       isValidCashHarvestAdjustment(request.resource.data);
+      allow update: if isAdmin() &&
+                       isValidCashHarvestAdjustment(request.resource.data) &&
+                       areImmutableFieldsUnchanged(['id', 'harvest_id', 'harvestId', 'created_at', 'createdAt']);
+      allow delete: if isAdmin();
+    }
+
+    // 5. Deposited Collections collection
+    match /deposited_collections/{depositId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() &&
+                       isValidDepositedCollection(request.resource.data);
+      allow update: if isAdmin() &&
+                       isValidDepositedCollection(request.resource.data) &&
+                       areImmutableFieldsUnchanged(['id', 'created_at', 'createdAt']);
+      allow delete: if isAdmin();
+    }
+
+    // 6. Wallet Replenishments collection
+    match /wallet_replenishments/{replenishmentId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() &&
+                       isValidWalletReplenishment(request.resource.data);
+      allow update: if isAdmin() &&
+                       isValidWalletReplenishment(request.resource.data) &&
+                       areImmutableFieldsUnchanged(['id', 'created_at', 'createdAt']);
+      allow delete: if isAdmin();
+    }
+
+    // 7. Auth PINs collection (Credentials Vault - ZERO CLIENT ACCESS)
+    // Client SDK callers (even authenticated tokens) cannot read hashes or write PINs.
+    // Server-side /api/auth routes execute exclusively via firebase-admin.
+    match /auth_pins/{pinId} {
+      allow read, write: if false;
+    }
+
+    // 8. System Settings collection
+    match /system_settings/{settingKey} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() &&
+                       isValidSystemSetting(request.resource.data);
+      allow update: if isAdmin() &&
+                       isValidSystemSetting(request.resource.data) &&
+                       areImmutableFieldsUnchanged(['key']);
+      allow delete: if isAdmin();
+    }
+
+    // 9. Import Batches collection
+    match /import_batches/{batchId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() &&
+                       isValidImportBatch(request.resource.data);
+      allow update: if isAdmin() &&
+                       isValidImportBatch(request.resource.data) &&
+                       areImmutableFieldsUnchanged(['id', 'target_machine_id', 'targetMachineId', 'imported_at', 'importedAt']);
+      allow delete: if isAdmin();
+    }
+  }
+}
