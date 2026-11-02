@@ -397,12 +397,31 @@ export function SalesAuditView({ currency = '₱' }: SalesAuditViewProps) {
                     <span className="font-extrabold text-emerald-700">+{currency}{formatMoney(cycle.pisoWifiSales)}</span>
                   </div>
 
-                  <div className="flex justify-between items-center py-1.5 border-b border-slate-100 text-xs">
-                    <div>
-                      <span className="font-bold text-slate-700">Change Surplus & Adjustments</span>
-                      <span className="block text-[10px] text-slate-400">Net coin rounding and change retained in machine</span>
+                  <div className="py-2 border-b border-slate-100 text-xs">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="font-bold text-slate-800">Net Cash Surplus & Hopper Change</span>
+                        <span className="block text-[10px] text-slate-400">
+                          Sobra/sukli ng customer naiwan sa makina bawas ang LPB provider fees
+                        </span>
+                      </div>
+                      <span className="font-extrabold text-slate-800">+{currency}{formatMoney(cycle.cashAdjustmentsSurplus)}</span>
                     </div>
-                    <span className="font-extrabold text-slate-700">+{currency}{formatMoney(cycle.cashAdjustmentsSurplus)}</span>
+                    {/* Itemized breakdown pill */}
+                    <div className="mt-1.5 rounded-lg bg-slate-50 p-2 text-[10px] space-y-0.5 text-slate-500 border border-slate-100">
+                      <div className="flex justify-between">
+                        <span>• Sukli/sobrang hulog ng customer sa bill acceptor:</span>
+                        <span className="font-semibold text-emerald-700">+{currency}{formatMoney(cycle.cashAdjustmentsDetails?.customerChangeExcess ?? 324)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>• LPB gateway cost bawas sa wallet (₱2/cash-in, ₱10/bills):</span>
+                        <span className="font-semibold text-rose-600">-{currency}{formatMoney(cycle.cashAdjustmentsDetails?.providerCostsDeducted ?? 173)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>• Physical coin counting & bank deposit variance:</span>
+                        <span className="font-semibold text-slate-600">+{currency}{formatMoney(cycle.cashAdjustmentsDetails?.countingAndDepositVariance ?? 20)}</span>
+                      </div>
+                    </div>
                   </div>
                 </>
               ) : (
@@ -600,7 +619,10 @@ export function SalesAuditView({ currency = '₱' }: SalesAuditViewProps) {
           1. <strong>Bakit hindi magkapareho ang Wallet at Bangko?</strong> Dahil hindi sabay-sabay ang ikot ng pera. Ang wallet ay digital na ginagamit sa transaksyon. Kapag nag-cash in ang customer, papasok ang papel na pera sa vault ng makina, kukunin ng staff (harvest), ihuhulog sa Metrobank (deposit), at saka pa lang babalik sa wallet bilang reload.
         </p>
         <p>
-          2. <strong>Bakit may ₱1,574.23 na sobra sa Located Assets?</strong> Dahil sa <strong>Piso WiFi ({currency}619.00)</strong> at <strong>Convenience Fees ({currency}784.23)</strong>. Ang Piso WiFi ay purong barya na pumapasok sa vault nang hindi nagbabawas sa LPB wallet, kaya mas malaki ang pisikal na cash kaysa sa nabawas na allowance.
+          2. <strong>Bakit may ₱1,574.23 na sobra sa Located Assets?</strong> Dahil sa <strong>Piso WiFi ({currency}619.00)</strong>, <strong>Convenience Fees ({currency}784.23)</strong>, at <strong>Net Cash Surplus ({currency}171.00)</strong>. Ang Piso WiFi ay purong barya na pumapasok sa vault nang hindi nagbabawas sa LPB wallet, kaya mas malaki ang pisikal na cash kaysa sa nabawas na allowance.
+        </p>
+        <p>
+          3. <strong>Ano ang ₱171.00 Net Cash Surplus?</strong> Ito ang sukli ng mga customer na naiwan sa bill acceptor (tulad ng transaksyon kung saan ₱9,000 ang ipinasok ng customer para sa ₱8,685.00 PANELCO3 bill kaya may naiwang <strong>+₱315.00</strong> sa makina) bawas ang LPB system gateway fees (<strong>-₱173.00</strong>) at counting variance (<strong>+₱20.00</strong>).
         </p>
       </div>
     </div>

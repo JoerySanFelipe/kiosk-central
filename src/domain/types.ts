@@ -228,6 +228,11 @@ export interface SalesAuditReport {
     convenienceFeesEarned: number;
     pisoWifiSales: number;
     cashAdjustmentsSurplus: number;
+    cashAdjustmentsDetails?: {
+      customerChangeExcess: number;
+      providerCostsDeducted: number;
+      countingAndDepositVariance: number;
+    };
     totalCycleAccountability: number;
     currentWalletBalance: number;
     bankDepositsPostReload: number;

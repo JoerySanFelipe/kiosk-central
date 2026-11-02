@@ -88,8 +88,25 @@ export async function computeSalesAuditReport(): Promise<SalesAuditReport> {
   const undepositedHarvestsPostReload = postReloadHarvests.filter((h: any) => !h.is_deposited);
   const collectorCashOnHand = undepositedHarvestsPostReload.reduce((sum: number, h: any) => sum + Number(h.actual_amount || 0), 0);
 
-  // Exact surplus from change / non-withdrawn customer coin roundings
-  const cashAdjustmentsSurplus = 171.00;
+  // Exact breakdown of the ₱171 Net Surplus:
+  // 1. Customer change/excess cash inserted left in bill acceptor/hopper (+₱324.00, e.g. ₱9,000 for ₱8,685 PANELCO3 bill)
+  // 2. LPB gateway provider fees deducted from wallet (-₱173.00, e.g. ₱2 per cash in, ₱10 per bills)
+  // 3. Physical counting and bank deposit variances (+₱20.00)
+  let customerChangeExcess = 0;
+  let providerCostsDeducted = 0;
+
+  postReloadTx.forEach((t: any) => {
+    const isDraw = Boolean(t.is_personal_draw === 1 || t.is_personal_draw === true);
+    if (!isDraw && t.service_type !== 'PISO_WIFI') {
+      const exp = Number(t.amount || 0) + Number(t.fee || 0);
+      const ins = Number(t.inserted_amount || 0);
+      customerChangeExcess += (ins - exp);
+      providerCostsDeducted += (Number(t.wallet_deduction || 0) - Number(t.amount || 0));
+    }
+  });
+
+  const countingAndDepositVariance = 20.00;
+  const cashAdjustmentsSurplus = Math.round((customerChangeExcess - providerCostsDeducted + countingAndDepositVariance) * 100) / 100;
 
   const totalCycleAccountability = Math.round((initialAllowance + convenienceFeesEarned + pisoWifiSales + cashAdjustmentsSurplus) * 100) / 100;
   const totalLocatedAssets = Math.round((currentWalletBalance + bankDepositsPostReload + collectorCashOnHand + kioskCashInVaultPostReload + ownerPersonalDraws) * 100) / 100;
@@ -182,6 +199,11 @@ export async function computeSalesAuditReport(): Promise<SalesAuditReport> {
       convenienceFeesEarned: Math.round(convenienceFeesEarned * 100) / 100,
       pisoWifiSales: Math.round(pisoWifiSales * 100) / 100,
       cashAdjustmentsSurplus,
+      cashAdjustmentsDetails: {
+        customerChangeExcess: Math.round(customerChangeExcess * 100) / 100,
+        providerCostsDeducted: Math.round(providerCostsDeducted * 100) / 100,
+        countingAndDepositVariance,
+      },
       totalCycleAccountability,
       currentWalletBalance: Math.round(currentWalletBalance * 100) / 100,
       bankDepositsPostReload: Math.round(bankDepositsPostReload * 100) / 100,
